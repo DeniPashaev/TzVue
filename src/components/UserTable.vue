@@ -4,14 +4,14 @@
     <table class="user-table">
       <thead>
         <tr>
-          <th>Имя</th>
-          <th>Телефон</th>
+          <th @click="sortBy('name')">Имя <span v-if="sortKey === 'name'">{{ sortOrder === 1 ? '▲' : '▼' }}</span></th>
+          <th @click="sortBy('phone')">Телефон <span v-if="sortKey === 'phone'">{{ sortOrder === 1 ? '▲' : '▼' }}</span></th>
           <th>Действия</th>
         </tr>
       </thead>
       <tbody>
         <UserRow
-          v-for="user in users.filter(user => !user.parentId)"
+          v-for="user in sortedUsers.filter(user => !user.parentId)"
           :key="user.id"
           :user="user"
           :users="users"
@@ -38,9 +38,42 @@ export default {
     return {
       users: JSON.parse(localStorage.getItem('users')) || [],
       showModal: false,
+      sortKey: '',
+      sortOrder: 1, // 1 for ascending, -1 for descending
     };
   },
+  computed: {
+    sortedUsers() {
+      const sortByKey = (key, order) => (a, b) => {
+        if (a[key] < b[key]) return -1 * order;
+        if (a[key] > b[key]) return 1 * order;
+        return 0;
+      };
+      
+      const sortUsers = (users, key, order) => {
+        users.sort(sortByKey(key, order));
+        users.forEach(user => {
+          const children = users.filter(child => child.parentId === user.id);
+          if (children.length) {
+            sortUsers(children, key, order);
+          }
+        });
+      };
+
+      const sortedUsers = [...this.users.filter(user => !user.parentId)];
+      sortUsers(sortedUsers, this.sortKey, this.sortOrder);
+      return sortedUsers;
+    }
+  },
   methods: {
+    sortBy(key) {
+      if (this.sortKey === key) {
+        this.sortOrder = this.sortOrder === 1 ? -1 : 1;
+      } else {
+        this.sortKey = key;
+        this.sortOrder = 1;
+      }
+    },
     addUser(user) {
       this.users.push(user);
       this.updateLocalStorage();
@@ -59,10 +92,12 @@ export default {
 
 <style scoped>
 .user-table-container {
+  text-align: left;
+  margin-top: 20px;
+  padding-left: 10px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-top: 20px;
 }
 
 .add-button {
@@ -73,7 +108,6 @@ export default {
   font-size: 14px;
   cursor: pointer;
   margin-bottom: 10px;
-  text-align: center;
 }
 
 .add-button:hover {
@@ -90,6 +124,7 @@ export default {
   border: 1px solid #ccc;
   padding: 8px;
   text-align: center;
+  cursor: pointer;
 }
 
 .user-table th {
